@@ -53,7 +53,7 @@ func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 	}
 
 	if node_name_text != "" || template_text != "" {
-		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s"), template_text, node_name_text)
+		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s", template_text, node_name_text))
 		if err != nil {
 			return nil, errorf("Couldn't parse Kafka message template. %v", err)
 		}
