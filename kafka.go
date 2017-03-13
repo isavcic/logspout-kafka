@@ -48,7 +48,7 @@ func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 		node_name_text = fmt.Sprintf("node_name=\"%s\"", os.Getenv("NODE_NAME"))
 	}
 
-	if os.Getenv("KAFKA_TEMPLATE") {
+	if os.Getenv("KAFKA_TEMPLATE") != "" {
 		template_text = os.Getenv("KAFKA_TEMPLATE")
 	}
 
