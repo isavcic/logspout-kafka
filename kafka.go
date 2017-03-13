@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gliderlabs/logspout/router"
-	"gopkg.in/Shopify/sarama.v1"
 )
 
 func init() {
@@ -39,8 +38,21 @@ func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 
 	var err error
 	var tmpl *template.Template
-	if text := os.Getenv("KAFKA_TEMPLATE"); text != "" {
-		tmpl, err = template.New("kafka").Parse(text)
+
+	var node_name_text string
+	var template_text string
+
+	// pick up custom $NODE_NAME, if it exists
+	if os.Getenv("NODE_NAME") != "" {
+		node_name_text = fmt.Sprintf("node_name=\"%s\"", os.Getenv("NODE_NAME"))
+	}
+
+	if os.Getenv("KAFKA_TEMPLATE") {
+		template_text = os.Getenv("KAFKA_TEMPLATE")
+	}
+
+	if node_name_text != "" || template_text != "" {
+		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s"), template_text, node_name_text)
 		if err != nil {
 			return nil, errorf("Couldn't parse Kafka message template. %v", err)
 		}
