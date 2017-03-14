@@ -54,7 +54,7 @@ func GenerateTemplate(c *docker.Container) *template.Template {
 	if custom_text != "" || template_text != "" {
 		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s", template_text, custom_text))
 		if err != nil {
-			return nil, errorf("Couldn't parse Kafka message template. %v", err)
+			errorf("Couldn't parse Kafka message template. %v", err)
 		}
 	}
 
@@ -62,6 +62,8 @@ func GenerateTemplate(c *docker.Container) *template.Template {
 }
 
 func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
+	var tmpl *template.Template
+
 	brokers := readBrokers(route.Address)
 	if len(brokers) == 0 {
 		return nil, errorf("The Kafka broker host:port is missing. Did you specify it as a route address?")
@@ -133,7 +135,7 @@ func (a *KafkaAdapter) Stream(logstream chan *router.Message) {
 		// TODO here we actually pass rm.Container to GenerateTemplate so it can extract
 		// env variables from a container
 		//
-		a.tmpl = GenerateTemplate(rm.Container)
+		// a.tmpl = GenerateTemplate(rm.Container)
 		message, err := a.formatMessage(rm)
 		if err != nil {
 			log.Println("kafka:", err)
