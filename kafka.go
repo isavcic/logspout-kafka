@@ -10,6 +10,7 @@ import (
 	"text/template"
 	"time"
 
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gliderlabs/logspout/router"
 	sarama "gopkg.in/Shopify/sarama.v1"
 )
@@ -26,6 +27,38 @@ type KafkaAdapter struct {
 	tmpl     *template.Template
 }
 
+func GenerateTemplate(c *docker.Container) {
+	var err error
+	var tmpl *template.Template
+
+	var custom_text string
+	var template_text string
+
+	// pick up custom $NODE_NAME, if it exists
+	if os.Getenv("NODE_NAME") != "" {
+		custom_text = fmt.Sprintf("node_name=\"%s\"", os.Getenv("NODE_NAME"))
+	}
+
+	if os.Getenv("KAFKA_TEMPLATE") != "" {
+		template_text = os.Getenv("KAFKA_TEMPLATE")
+	}
+
+	for _, e := range c.Config.Env {
+		if strings.HasPrefix(e, "K8S_") {
+			kv := strings.Split(strings.TrimPrefix(e, "K8S_"), "=")
+			// k, v := kv[0], kv[1]
+			custom_text = fmt.Sprintf("%s %s=\"%s\"", custom_text, kv[0], kv[1])
+		}
+	}
+
+	if custom_text != "" || template_text != "" {
+		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s", template_text, custom_text))
+		if err != nil {
+			return nil, errorf("Couldn't parse Kafka message template. %v", err)
+		}
+	}
+}
+
 func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 	brokers := readBrokers(route.Address)
 	if len(brokers) == 0 {
@@ -38,26 +71,26 @@ func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 	}
 
 	var err error
-	var tmpl *template.Template
+	// var tmpl *template.Template
 
-	var node_name_text string
-	var template_text string
+	// var node_name_text string
+	// var template_text string
 
-	// pick up custom $NODE_NAME, if it exists
-	if os.Getenv("NODE_NAME") != "" {
-		node_name_text = fmt.Sprintf("node_name=\"%s\"", os.Getenv("NODE_NAME"))
-	}
+	// // pick up custom $NODE_NAME, if it exists
+	// if os.Getenv("NODE_NAME") != "" {
+	// 	node_name_text = fmt.Sprintf("node_name=\"%s\"", os.Getenv("NODE_NAME"))
+	// }
 
-	if os.Getenv("KAFKA_TEMPLATE") != "" {
-		template_text = os.Getenv("KAFKA_TEMPLATE")
-	}
+	// if os.Getenv("KAFKA_TEMPLATE") != "" {
+	// 	template_text = os.Getenv("KAFKA_TEMPLATE")
+	// }
 
-	if node_name_text != "" || template_text != "" {
-		tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s", template_text, node_name_text))
-		if err != nil {
-			return nil, errorf("Couldn't parse Kafka message template. %v", err)
-		}
-	}
+	// if node_name_text != "" || template_text != "" {
+	// 	tmpl, err = template.New("kafka").Parse(fmt.Sprintf("%s %s", template_text, node_name_text))
+	// 	if err != nil {
+	// 		return nil, errorf("Couldn't parse Kafka message template. %v", err)
+	// 	}
+	// }
 
 	if os.Getenv("DEBUG") != "" {
 		log.Printf("Starting Kafka producer for address: %s, topic: %s.\n", brokers, topic)
@@ -95,6 +128,10 @@ func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
 func (a *KafkaAdapter) Stream(logstream chan *router.Message) {
 	defer a.producer.Close()
 	for rm := range logstream {
+		// TODO here we actually pass rm.Container to GenerateTemplate so it can extract
+		// env variables from a container
+		//
+		GenerateTemplate(rm.Container)
 		message, err := a.formatMessage(rm)
 		if err != nil {
 			log.Println("kafka:", err)
@@ -130,6 +167,8 @@ func (a *KafkaAdapter) formatMessage(message *router.Message) (*sarama.ProducerM
 	var encoder sarama.Encoder
 	if a.tmpl != nil {
 		var w bytes.Buffer
+		// TODO This is not the best for the template to be executed from, because it is static this way.
+		// We need the fields of the template to be dynamic reflecting the env of the container.
 		if err := a.tmpl.Execute(&w, message); err != nil {
 			return nil, err
 		}
