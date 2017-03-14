@@ -27,7 +27,7 @@ type KafkaAdapter struct {
 	tmpl     *template.Template
 }
 
-func GenerateTemplate(c *docker.Container) {
+func GenerateTemplate(c *docker.Container) *template.Template {
 	var err error
 	var tmpl *template.Template
 
@@ -57,6 +57,8 @@ func GenerateTemplate(c *docker.Container) {
 			return nil, errorf("Couldn't parse Kafka message template. %v", err)
 		}
 	}
+
+	return tmpl
 }
 
 func NewKafkaAdapter(route *router.Route) (router.LogAdapter, error) {
@@ -131,7 +133,7 @@ func (a *KafkaAdapter) Stream(logstream chan *router.Message) {
 		// TODO here we actually pass rm.Container to GenerateTemplate so it can extract
 		// env variables from a container
 		//
-		GenerateTemplate(rm.Container)
+		a.tmpl = GenerateTemplate(rm.Container)
 		message, err := a.formatMessage(rm)
 		if err != nil {
 			log.Println("kafka:", err)
