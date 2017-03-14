@@ -135,7 +135,7 @@ func (a *KafkaAdapter) Stream(logstream chan *router.Message) {
 		// TODO here we actually pass rm.Container to GenerateTemplate so it can extract
 		// env variables from a container
 		//
-		// a.tmpl = GenerateTemplate(rm.Container)
+		a.tmpl = GenerateTemplate(rm.Container)
 		message, err := a.formatMessage(rm)
 		if err != nil {
 			log.Println("kafka:", err)
